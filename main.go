@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"time"
 
@@ -9,49 +12,63 @@ import (
 )
 
 type Recebedor struct {
-	Nome         string
-	Cnpj         string
-	Endereco     string
-	NomeFantasia string
+	Nome         string `json:"nome"`
+	Cnpj         string `json:"cnpj"`
+	Endereco     string `json:"endereco"`
+	NomeFantasia string `json:"nomeFantasia"`
 }
 
 type Pagador struct {
-	Nome     string
-	Endereco string
+	Nome     string `json:"nome"`
+	Endereco string `json:"endereco"`
 }
 
 type Fatura struct {
-	Numero         int
-	Data           string
-	Valor          float64
-	DataVencimento string
-	Descricao      string
+	Descricao      string  `json:"descricao"`
+	DiasVencimento int     `json:"diasVencimento"`
+	ID             int     `json:"id"`
+	Valor          float64 `json:"valor"`
+}
+
+func byteValue(caminho string) []byte {
+	arquivo, err := os.Open(caminho)
+
+	byteValue, err := ioutil.ReadAll(arquivo)
+	if err != nil {
+		panic(err)
+	}
+	return byteValue
+}
+
+func createFatura(recebedor string, pagador string, fatura string) (Recebedor, Pagador, Fatura) {
+	byteValueRecebedor := byteValue(recebedor)
+	byteValuePagador := byteValue(pagador)
+	byteValueFatura := byteValue(fatura)
+
+	var Rec Recebedor
+	var Pag Pagador
+	var Fat Fatura
+
+	json.Unmarshal(byteValueRecebedor, &Rec)
+	json.Unmarshal(byteValuePagador, &Pag)
+	json.Unmarshal(byteValueFatura, &Fat)
+	return Rec, Pag, Fat
 }
 
 func main() {
-	RosembackTech := Recebedor{
-		Nome:         "12926599714 - Lillian da Silva Moura",
-		Cnpj:         "44.983.742/0001-50",
-		Endereco:     "Praia do Flamengo, 72 apto 223 - Flamengo - Rio de Janeiro - RJ",
-		NomeFantasia: "Rosemback Technologies",
-	}
-	CySource := Pagador{
-		Nome:     "CySource Academy",
-		Endereco: "Carlebach St 1 , Tel Aviv , Israel",
-	}
-	Fatura1 := Fatura{
-		Numero:         5,
-		Data:           time.Now().Format("02/01/2006"),
-		Valor:          600.00,
-		DataVencimento: time.Now().AddDate(0, 0, 30).Format("02/01/2006"),
-		Descricao:      "Servicos de treinamento de informatica",
-	}
+	Recebedor, Pagador, Fatura := createFatura(
+		"./files/Recebedor/RosembackTech.json",
+		"./files/Clientes/CySource.json",
+		"./files/Faturas/Fatura1.json")
+
+	emissao := time.Now().Format("02/01/2006")
+	fmt.Println(Fatura)
+	vencimento := time.Now().AddDate(0, 0, Fatura.DiasVencimento).Format("02/01/2006")
+
 	pdf := gofpdf.New(gofpdf.OrientationPortrait,
 		gofpdf.UnitMillimeter,
 		gofpdf.PageSizeA4,
 		"")
-	w, h := pdf.GetPageSize()
-	fmt.Println("largura %v, altura %v", w, h)
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 38)
 	_, lineHt := pdf.GetFontSize()
@@ -70,27 +87,28 @@ func main() {
 		gofpdf.BorderBottom, gofpdf.AlignLeft, false)
 	pdf.SetFont("Arial", "", 12)
 	pdf.MultiCell(0, lineHt*1.5,
-		RosembackTech.Nome,
+		Recebedor.Nome,
 		gofpdf.BorderNone, "L",
 		false)
 	pdf.MultiCell(0, lineHt*1.5,
-		"CNPJ: "+RosembackTech.Cnpj,
+		"CNPJ: "+Recebedor.Cnpj,
 		gofpdf.BorderNone, "L",
 		false)
 	pdf.MultiCell(0, lineHt*1.5,
-		"Endereco: "+RosembackTech.Endereco,
+		"Endereco: "+Recebedor.Endereco,
 		gofpdf.BorderNone, "L",
 		false)
+
 	pdf.SetFont("Arial", "B", 16)
 	_, lineHt = pdf.GetFontSize()
 	pdf.MultiCell(0, lineHt*3,
 		"Cobrar a: ", gofpdf.BorderBottom, "L", false)
 	pdf.SetFont("Arial", "", 12)
 	pdf.MultiCell(0, lineHt*1.5,
-		CySource.Nome,
+		Pagador.Nome,
 		gofpdf.BorderNone, "L", false)
 	pdf.MultiCell(0, lineHt*1.5,
-		CySource.Endereco, gofpdf.BorderNone, "L", false)
+		Pagador.Endereco, gofpdf.BorderNone, "L", false)
 
 	pdf.SetFont("Arial", "B", 16)
 	pdf.MultiCell(0, lineHt*3,
@@ -100,23 +118,23 @@ func main() {
 
 	pdf.SetFont("Arial", "", 12)
 	pdf.MultiCell(0, lineHt*1.5,
-		"Numero: "+strconv.Itoa(Fatura1.Numero),
+		"Numero: "+strconv.Itoa(Fatura.ID),
 		gofpdf.BorderNone, "L", false)
 	pdf.MultiCell(0, lineHt*1.5,
-		"Data: "+Fatura1.Data,
+		"Data: "+emissao,
 		gofpdf.BorderNone, "L", false)
 	pdf.MultiCell(0, lineHt*1.5,
-		"Valor: "+strconv.FormatFloat(Fatura1.Valor, 'f', 2, 64),
+		"Valor: "+strconv.FormatFloat(Fatura.Valor, 'f', 2, 64),
 		gofpdf.BorderNone, "L", false)
 	pdf.MultiCell(0, lineHt*1.5,
-		"Data de Vencimento: "+Fatura1.DataVencimento,
+		"Data de Vencimento: "+vencimento,
 		gofpdf.BorderNone, "L", false)
 	pdf.MultiCell(0, lineHt*1.5,
-		"Descricao: "+Fatura1.Descricao,
+		"Descricao: "+Fatura.Descricao,
 		gofpdf.BorderNone, "L", false)
 
-	err := pdf.OutputFileAndClose("p1.pdf")
-	if err != nil {
-		panic(err)
+	err2 := pdf.OutputFileAndClose("p1.pdf")
+	if err2 != nil {
+		panic(err2)
 	}
 }
